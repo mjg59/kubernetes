@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/coreos/go-tspi/tpmclient"
 	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/errors"
@@ -1379,7 +1380,11 @@ func describeNode(node *api.Node, nodeNonTerminatedPodsList *api.PodList, events
 			}
 		}
 		var addresses []string
+		ipaddress := ""
 		for _, address := range node.Status.Addresses {
+			if ipaddress == "" {
+				ipaddress = address.Address
+			}
 			addresses = append(addresses, address.Address)
 		}
 		fmt.Fprintf(out, "Addresses:\t%s\n", strings.Join(addresses, ","))
@@ -1416,6 +1421,27 @@ func describeNode(node *api.Node, nodeNonTerminatedPodsList *api.PodList, events
 		if events != nil {
 			DescribeEvents(events, out)
 		}
+
+		tpm := tpmclient.New(ipaddress)
+		aikpub, aikblob, err := tpm.GenerateAIK()
+		if err != nil {
+			return nil
+		}
+		_, log, err := tpm.GetQuote(aikpub, aikblob, []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15})
+		if err != nil {
+			return nil
+		}
+		fmt.Fprintf(out, " TPM log:\n")
+		for _, entry := range(log) {
+			if entry.Eventtype != 0x1000 {
+				continue
+			}
+			if entry.Pcr != 15 {
+				continue
+			}
+			fmt.Fprintf(out, "  %s\n", string(entry.Event))
+		}
+
 		return nil
 	})
 }
