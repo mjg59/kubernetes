@@ -19,27 +19,30 @@ package admit
 
 import (
 	"bytes"
-	"crypto/rand"
+	"fmt"
 	"io"
 
+	"github.com/golang/glog"
+	"k8s.io/kubernetes/pkg/admission"
 	"k8s.io/kubernetes/pkg/api"
         apierrors "k8s.io/kubernetes/pkg/api/errors"
-	"k8s.io/kubernetes/pkg/admission"
 	client "k8s.io/kubernetes/pkg/client/unversioned"
-	"github.com/coreos/go-tspi/attestation"
-	"github.com/coreos/go-tspi/tpmclient"
+	nodeutil "k8s.io/kubernetes/pkg/util/node"
+	"k8s.io/kubernetes/pkg/util/tpm"
 )
 
 func init() {
 	admission.RegisterPlugin("TPMAdmit", func(client client.Interface, config io.Reader) (admission.Interface, error) {
-		return NewTPMAdmit(), nil
-	})
+		return NewTPMAdmit(client), nil
+	})	
 }
 
 // TPMAdmit is an implementation of admission.Interface which performs TPM-based validation of the request
-type tpmAdmit struct{}
+type tpmAdmit struct{
+	handler tpm.TPMHandler
+}
 
-func (tpmAdmit) Admit(a admission.Attributes) (err error) {
+func (t *tpmAdmit) Admit(a admission.Attributes) (err error) {
 	if a.GetOperation() != admission.Create  || a.GetKind() != api.Kind("Node") {
 		return nil
 	}
@@ -47,47 +50,27 @@ func (tpmAdmit) Admit(a admission.Attributes) (err error) {
 	if !ok {
 		return apierrors.NewBadRequest("Resource was marked with kind Node but was unable to be converted")
 	}
-	tpm := tpmclient.New(node.Status.Addresses[0].Address)
-	ekcert, err := tpm.GetEKCert()
+	glog.Errorf("Getting node address")
+	address, err := nodeutil.GetNodeHostIP(node)
+	if err != nil{
+		return admission.NewForbidden(a, err)
+	}
+	glog.Errorf("Node address is %s", address.String())
+	tpmdata, err := t.handler.Get(address.String(), true)
 	if err != nil {
-		return err
+		return admission.NewForbidden(a, fmt.Errorf("Unable to obtain TPM object: %p", err))
 	}
-	err = attestation.VerifyEKCert(ekcert)
+	glog.Errorf("Requesting quote")
+	quote, _, err := tpm.Quote(tpmdata)
 	if err != nil {
-		return err
+		glog.Errorf("Invalid quote")
+		return admission.NewForbidden(a, fmt.Errorf("Invalid quote provided: %p", err))
 	}
-	aikpub, aikblob, err := tpm.GenerateAIK()
-	if err != nil {
-		return err
-	}
-	secret := make([]byte, 16)
-	_, err = rand.Read(secret)
-	if err != nil {
-		return err
-	}
-	aikpub, aikblob, err = tpm.GenerateAIK()
-	if err != nil {
-		return err
-	}
-	asymenc, symenc, err := attestation.GenerateChallenge(nil, ekcert, aikpub, secret)
-	if err != nil {
-		return err
-	}
-	response, err := tpm.ValidateAIK(aikblob, asymenc, symenc)
-	if err != nil {
-		return err
-	}
-	if !bytes.Equal(response[:], secret) {
-		return apierrors.NewBadRequest("AIK could not be validated")
-	}
-	quote, _, err := tpm.GetQuote(aikpub, aikblob, []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15})
-	if err != nil {
-		return err
-	}
+	glog.Errorf("Got valid quote")
 	if !bytes.Equal(quote[0], []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) {
-		return apierrors.NewBadRequest("Invalid quote provided")
+		glog.Errorf("Invalid PCR")
+		return admission.NewForbidden(a, fmt.Errorf("Invalid quote provided"))
 	}
-	// Stash aikpub and aikblob somewhere in the Node data
 	return nil
 }
 
@@ -96,6 +79,10 @@ func (tpmAdmit) Handles(operation admission.Operation) bool {
 }
 
 // NewTPMAdmit creates a new TPMAdmit handler
-func NewTPMAdmit() admission.Interface {
-	return new(tpmAdmit)
+func NewTPMAdmit(c client.Interface) admission.Interface {
+	var tpmhandler tpm.TPMHandler
+	tpmhandler.Setup(c)
+	return &tpmAdmit{
+		handler: tpmhandler,
+	}
 }
