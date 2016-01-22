@@ -16,7 +16,9 @@ package tspi
 
 // #include <trousers/tss.h>
 import "C"
+import "fmt"
 import "unsafe"
+import "encoding/hex"
 
 // PCRs is a structure representing a PCR object and the PCR values
 type PCRs struct {
@@ -55,6 +57,7 @@ func (pcrs *PCRs) GetPCRValues() ([][]byte, error) {
 			return nil, err
 		}
 		pcrs.pcrs[pcr] = C.GoBytes(unsafe.Pointer(buf), (C.int)(buflen))
+		fmt.Printf("PCR %d gave %s\n", pcr, hex.Dump(pcrs.pcrs[pcr]))
 		C.Tspi_Context_FreeMemory(pcrs.context, buf)
 	}
 	return pcrs.pcrs[:], nil
