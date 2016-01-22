@@ -67,6 +67,8 @@ import (
 	"k8s.io/kubernetes/pkg/registry/thirdpartyresourcedata"
 	thirdpartyresourcedataetcd "k8s.io/kubernetes/pkg/registry/thirdpartyresourcedata/etcd"
 	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/kubernetes/pkg/registry/tpm"
+	tpmetcd "k8s.io/kubernetes/pkg/registry/tpm/etcd"
 	"k8s.io/kubernetes/pkg/storage"
 	etcdutil "k8s.io/kubernetes/pkg/storage/etcd/util"
 	"k8s.io/kubernetes/pkg/util"
@@ -108,6 +110,7 @@ type Master struct {
 	endpointRegistry          endpoint.Registry
 	serviceClusterIPAllocator service.RangeRegistry
 	serviceNodePortAllocator  service.RangeRegistry
+	tpmRegistry               tpm.Registry
 
 	// storage for third party objects
 	thirdPartyStorage storage.Interface
@@ -294,6 +297,9 @@ func (m *Master) initV1ResourcesStorage(c *Config) {
 	serviceStorage := serviceetcd.NewREST(dbClient("services"), storageDecorator)
 	m.serviceRegistry = service.NewRegistry(serviceStorage)
 
+	tpmStorage := tpmetcd.NewREST(dbClient("tpms"), storageDecorator)
+	m.tpmRegistry = tpm.NewRegistry(tpmStorage)
+
 	var serviceClusterIPRegistry service.RangeRegistry
 	serviceClusterIPRange := m.ServiceClusterIPRange
 	if serviceClusterIPRange == nil {
@@ -352,6 +358,7 @@ func (m *Master) initV1ResourcesStorage(c *Config) {
 		"persistentVolumes/status":      persistentVolumeStatusStorage,
 		"persistentVolumeClaims":        persistentVolumeClaimStorage,
 		"persistentVolumeClaims/status": persistentVolumeClaimStatusStorage,
+		"tpms":                          tpmStorage,
 
 		"componentStatuses": componentstatus.NewStorage(func() map[string]apiserver.Server { return m.getServersToValidate(c) }),
 	}

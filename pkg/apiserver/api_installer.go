@@ -35,6 +35,7 @@ import (
 	"k8s.io/kubernetes/pkg/runtime"
 	watchjson "k8s.io/kubernetes/pkg/watch/json"
 
+	"github.com/golang/glog"
 	"github.com/emicklei/go-restful"
 )
 
@@ -151,20 +152,24 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 			fqKindToRegister.Version = a.group.GroupVersion.Version
 		}
 	}
-
+	glog.Errorf("Found %v for %v", fqKinds, reflect.TypeOf(object))
 	if fqKindToRegister.IsEmpty() {
 		return nil, fmt.Errorf("unable to locate fully qualified kind for %v: found %v when registering for %v", reflect.TypeOf(object), fqKinds, a.group.GroupVersion)
 	}
 	kind := fqKindToRegister.Kind
 
+	glog.Errorf("Got kind %v", kind)
+
 	versionedPtr, err := a.group.Creater.New(a.group.GroupVersion.WithKind(kind))
 	if err != nil {
+                glog.Errorf("Failed to create new group")
 		return nil, err
 	}
 	versionedObject := indirectArbitraryPointer(versionedPtr)
 
 	mapping, err := a.group.Mapper.RESTMapping(fqKindToRegister.GroupKind(), a.group.GroupVersion.Version)
 	if err != nil {
+		glog.Errorf("Failed to get REST mapping")
 		return nil, err
 	}
 
@@ -178,6 +183,7 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 
 		parentFQKinds, err := a.group.Typer.ObjectKinds(parentObject)
 		if err != nil {
+			glog.Errorf("Couldn't get parent types")
 			return nil, err
 		}
 		// a given go type can have multiple potential fully qualified kinds.  Find the one that corresponds with the group
@@ -195,6 +201,7 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 
 		parentMapping, err := a.group.Mapper.RESTMapping(parentFQKindToRegister.GroupKind(), a.group.GroupVersion.Version)
 		if err != nil {
+			glog.Errorf("Couldn't get parent object REST mapping")
 			return nil, err
 		}
 		mapping.Scope = parentMapping.Scope
@@ -225,6 +232,7 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 
 	versionedExportOptions, err := a.group.Creater.New(optionsExternalVersion.WithKind("ExportOptions"))
 	if err != nil {
+		glog.Errorf("Can't get versioned export")
 		return nil, err
 	}
 
@@ -238,6 +246,7 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 		listGVK, err := a.group.Typer.ObjectKind(list)
 		versionedListPtr, err := a.group.Creater.New(a.group.GroupVersion.WithKind(listGVK.Kind))
 		if err != nil {
+			glog.Errorf("Can't get new group with lister")
 			return nil, err
 		}
 		versionedList = indirectArbitraryPointer(versionedListPtr)
@@ -245,6 +254,7 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 
 	versionedListOptions, err := a.group.Creater.New(optionsExternalVersion.WithKind("ListOptions"))
 	if err != nil {
+		glog.Errorf("Can't create list options")
 		return nil, err
 	}
 
@@ -253,6 +263,7 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 	case isGracefulDeleter:
 		objectPtr, err := a.group.Creater.New(optionsExternalVersion.WithKind("DeleteOptions"))
 		if err != nil {
+			glog.Errorf("1")
 			return nil, err
 		}
 		versionedDeleterObject = indirectArbitraryPointer(objectPtr)
@@ -263,6 +274,7 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 
 	versionedStatusPtr, err := a.group.Creater.New(optionsExternalVersion.WithKind("Status"))
 	if err != nil {
+		glog.Errorf("2")
 		return nil, err
 	}
 	versionedStatus := indirectArbitraryPointer(versionedStatusPtr)
@@ -276,10 +288,12 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 		getOptions, getSubpath, _ = getterWithOptions.NewGetOptions()
 		getOptionsInternalKind, err = a.group.Typer.ObjectKind(getOptions)
 		if err != nil {
+			glog.Errorf("3")
 			return nil, err
 		}
 		versionedGetOptions, err = a.group.Creater.New(optionsExternalVersion.WithKind(getOptionsInternalKind.Kind))
 		if err != nil {
+			glog.Errorf("4")
 			return nil, err
 		}
 		isGetter = true
@@ -296,6 +310,7 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 		if connectOptions != nil {
 			connectOptionsInternalKind, err = a.group.Typer.ObjectKind(connectOptions)
 			if err != nil {
+				glog.Errorf("5")
 				return nil, err
 			}
 
@@ -306,9 +321,11 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 	var ctxFn ContextFunc
 	ctxFn = func(req *restful.Request) api.Context {
 		if context == nil {
+			glog.Errorf("6")
 			return api.NewContext()
 		}
 		if ctx, ok := context.Get(req.Request); ok {
+			glog.Errorf("7")
 			return ctx
 		}
 		return api.NewContext()
@@ -412,6 +429,7 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 		}
 		break
 	default:
+		glog.Errorf("8")
 		return nil, fmt.Errorf("unsupported restscope: %s", scope.Name())
 	}
 
@@ -472,11 +490,13 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 				Writes(versionedObject)
 			if isGetterWithOptions {
 				if err := addObjectParams(ws, route, versionedGetOptions); err != nil {
+					glog.Errorf("9")
 					return nil, err
 				}
 			}
 			if isExporter {
 				if err := addObjectParams(ws, route, versionedExportOptions); err != nil {
+					glog.Errorf("10")
 					return nil, err
 				}
 			}
@@ -496,6 +516,7 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 				Returns(http.StatusOK, "OK", versionedList).
 				Writes(versionedList)
 			if err := addObjectParams(ws, route, versionedListOptions); err != nil {
+				glog.Errorf("11")
 				return nil, err
 			}
 			switch {
@@ -601,6 +622,7 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 				Writes(versionedStatus).
 				Returns(http.StatusOK, "OK", versionedStatus)
 			if err := addObjectParams(ws, route, versionedListOptions); err != nil {
+				glog.Errorf("13")
 				return nil, err
 			}
 			addParams(route, action.Params)
@@ -620,6 +642,7 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 				Returns(http.StatusOK, "OK", watchjson.WatchEvent{}).
 				Writes(watchjson.WatchEvent{})
 			if err := addObjectParams(ws, route, versionedListOptions); err != nil {
+				glog.Errorf("14")
 				return nil, err
 			}
 			addParams(route, action.Params)
@@ -639,6 +662,7 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 				Returns(http.StatusOK, "OK", watchjson.WatchEvent{}).
 				Writes(watchjson.WatchEvent{})
 			if err := addObjectParams(ws, route, versionedListOptions); err != nil {
+				glog.Errorf("15")
 				return nil, err
 			}
 			addParams(route, action.Params)
@@ -674,6 +698,7 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 				ws.Route(route)
 			}
 		default:
+			glog.Errorf("17")
 			return nil, fmt.Errorf("unrecognized action verb: %s", action.Verb)
 		}
 		// Note: update GetAttribs() when adding a custom handler.

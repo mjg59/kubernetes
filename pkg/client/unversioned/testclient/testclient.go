@@ -278,6 +278,10 @@ func (c *Fake) Discovery() client.DiscoveryInterface {
 	return &FakeDiscovery{c}
 }
 
+func (c *Fake) Tpms() client.TpmInterface {
+	return &FakeTpms{c}
+}
+
 func (c *Fake) ComponentStatuses() client.ComponentStatusInterface {
 	return &FakeComponentStatuses{Fake: c}
 }
