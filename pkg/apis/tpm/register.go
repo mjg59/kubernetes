@@ -46,6 +46,7 @@ func addKnownTypes(scheme *runtime.Scheme) {
 	glog.Errorf("****Adding %s", SchemeGroupVersion)
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&Tpm{},
+		&TpmList{},
 	)
 }
 

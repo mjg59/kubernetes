@@ -100,6 +100,9 @@ type Master struct {
 	// Map of v1 resources to their REST storages.
 	v1ResourcesStorage map[string]rest.Storage
 
+	// Map of TPM resources to their REST storages.
+	tpmResourcesStorage map[string]rest.Storage
+
 	enableCoreControllers bool
 	// registries are internal client APIs for accessing the storage layer
 	// TODO: define the internal typed interface in a way that clients can
@@ -230,6 +233,18 @@ func (m *Master) InstallAPIs(c *Config) {
 		}
 		apiGroupsInfo = append(apiGroupsInfo, apiGroupInfo)
 
+		tpmApiGroupInfo := genericapiserver.APIGroupInfo{
+			GroupMeta: *registered.GroupOrDie("tpm"),
+			VersionedResourcesStorageMap: map[string]map[string]rest.Storage{
+				"v1beta1": tpmResourcesStorage,
+			},
+			IsLegacyGroup:        false,
+			Scheme:               api.Scheme,
+			ParameterCodec:       api.ParameterCodec,
+			NegotiatedSerializer: api.Codecs,
+		}
+		apiGroupsInfo = append(apiGroupsInfo, tpmApiGroupInfo)
+
 		extensionsGVForDiscovery := unversioned.GroupVersionForDiscovery{
 			GroupVersion: extensionsGroupMeta.GroupVersion.String(),
 			Version:      extensionsGroupMeta.GroupVersion.Version,
@@ -297,9 +312,6 @@ func (m *Master) initV1ResourcesStorage(c *Config) {
 	serviceStorage := serviceetcd.NewREST(dbClient("services"), storageDecorator)
 	m.serviceRegistry = service.NewRegistry(serviceStorage)
 
-	tpmStorage := tpmetcd.NewREST(dbClient("tpms"), storageDecorator)
-	m.tpmRegistry = tpm.NewRegistry(tpmStorage)
-
 	var serviceClusterIPRegistry service.RangeRegistry
 	serviceClusterIPRange := m.ServiceClusterIPRange
 	if serviceClusterIPRange == nil {
@@ -358,10 +370,18 @@ func (m *Master) initV1ResourcesStorage(c *Config) {
 		"persistentVolumes/status":      persistentVolumeStatusStorage,
 		"persistentVolumeClaims":        persistentVolumeClaimStorage,
 		"persistentVolumeClaims/status": persistentVolumeClaimStatusStorage,
-		"tpms":                          tpmStorage,
 
 		"componentStatuses": componentstatus.NewStorage(func() map[string]apiserver.Server { return m.getServersToValidate(c) }),
 	}
+}
+
+func (m *Master) initV1TpmStorage(c *Config) {
+	storageDecorator := m.StorageDecorator()
+	dbClient := func(resource string) storage.Interface { return c.StorageDestinations.Get("", resource) }
+
+	tpmStorage := tpmetcd.NewREST(dbClient("tpms"), storageDecorator)
+	m.tpmRegistry = tpm.NewRegistry(tpmStorage)
+	m.tpmResourcesStorage["tpms"] = tpmStorage
 }
 
 // NewBootstrapController returns a controller for watching the core capabilities of the master.
