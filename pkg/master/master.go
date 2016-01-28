@@ -196,6 +196,20 @@ func (m *Master) InstallAPIs(c *Config) {
 			NegotiatedSerializer: api.Codecs,
 		}
 		apiGroupsInfo = append(apiGroupsInfo, apiGroupInfo)
+
+		m.initTpmResourcesStorage(c)
+		tpmApiGroupInfo := genericapiserver.APIGroupInfo{
+			GroupMeta: *registered.GroupOrDie("tpm"),
+			VersionedResourcesStorageMap: map[string]map[string]rest.Storage{
+				"v1": m.tpmResourcesStorage,
+			},
+			OptionsExternalVersion: &registered.GroupOrDie("tpm").GroupVersion,
+			IsLegacyGroup:        false,
+			Scheme:               api.Scheme,
+			ParameterCodec:       api.ParameterCodec,
+			NegotiatedSerializer: api.Codecs,
+		}
+		apiGroupsInfo = append(apiGroupsInfo, tpmApiGroupInfo)
 	}
 
 	// Install root web services
@@ -232,18 +246,6 @@ func (m *Master) InstallAPIs(c *Config) {
 			NegotiatedSerializer:   api.Codecs,
 		}
 		apiGroupsInfo = append(apiGroupsInfo, apiGroupInfo)
-
-		tpmApiGroupInfo := genericapiserver.APIGroupInfo{
-			GroupMeta: *registered.GroupOrDie("tpm"),
-			VersionedResourcesStorageMap: map[string]map[string]rest.Storage{
-				"v1beta1": tpmResourcesStorage,
-			},
-			IsLegacyGroup:        false,
-			Scheme:               api.Scheme,
-			ParameterCodec:       api.ParameterCodec,
-			NegotiatedSerializer: api.Codecs,
-		}
-		apiGroupsInfo = append(apiGroupsInfo, tpmApiGroupInfo)
 
 		extensionsGVForDiscovery := unversioned.GroupVersionForDiscovery{
 			GroupVersion: extensionsGroupMeta.GroupVersion.String(),
@@ -375,13 +377,15 @@ func (m *Master) initV1ResourcesStorage(c *Config) {
 	}
 }
 
-func (m *Master) initV1TpmStorage(c *Config) {
+func (m *Master) initTpmResourcesStorage(c *Config) {
 	storageDecorator := m.StorageDecorator()
 	dbClient := func(resource string) storage.Interface { return c.StorageDestinations.Get("", resource) }
 
 	tpmStorage := tpmetcd.NewREST(dbClient("tpms"), storageDecorator)
 	m.tpmRegistry = tpm.NewRegistry(tpmStorage)
-	m.tpmResourcesStorage["tpms"] = tpmStorage
+	m.tpmResourcesStorage = map[string]rest.Storage{
+		"tpms":             tpmStorage,
+	}
 }
 
 // NewBootstrapController returns a controller for watching the core capabilities of the master.

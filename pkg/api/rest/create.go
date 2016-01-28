@@ -17,6 +17,7 @@ limitations under the License.
 package rest
 
 import (
+	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/unversioned"
@@ -57,7 +58,7 @@ func BeforeCreate(strategy RESTCreateStrategy, ctx api.Context, obj runtime.Obje
 	if kerr != nil {
 		return kerr
 	}
-
+	glog.Errorf("BEFORE CREATE: metaname %s", objectMeta.Name)
 	if strategy.NamespaceScoped() {
 		if !api.ValidNamespace(ctx, objectMeta) {
 			return errors.NewBadRequest("the namespace of the provided object does not match the namespace sent on the request")

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+package v1
 
 import (
 	"github.com/golang/glog"
@@ -27,9 +27,7 @@ import (
 const GroupName = "tpm"
 
 // SchemeGroupVersion is group version used to register these objects
-var SchemeGroupVersion = unversioned.GroupVersion{Group: GroupName, Version: "v1beta1"}
-
-var Codec = runtime.CodecFor(api.Scheme, SchemeGroupVersion)
+var SchemeGroupVersion = unversioned.GroupVersion{Group: GroupName, Version: "v1"}
 
 func AddToScheme(scheme *runtime.Scheme) {
 	// Add the API to Scheme.
@@ -44,6 +42,9 @@ func addKnownTypes(scheme *runtime.Scheme) {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&Tpm{},
 		&TpmList{},
+		&api.ListOptions{},
+		&api.DeleteOptions{},
+		&unversioned.Status{},
 	)
 }
 

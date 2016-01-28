@@ -12,15 +12,17 @@ import (
 	"github.com/coreos/go-tspi/verification"
 	"github.com/golang/glog"
         "k8s.io/kubernetes/pkg/api"
+//	"k8s.io/kubernetes/pkg/api/errors"
 	tpmapi "k8s.io/kubernetes/pkg/apis/tpm"
-	"k8s.io/kubernetes/pkg/client/cache"
+//	"k8s.io/kubernetes/pkg/client/cache"
         client "k8s.io/kubernetes/pkg/client/unversioned"
-        "k8s.io/kubernetes/pkg/runtime"
-	"k8s.io/kubernetes/pkg/watch"
+//        "k8s.io/kubernetes/pkg/runtime"
+//	"k8s.io/kubernetes/pkg/watch"
 )
 
 type TPMHandler struct {
-	store cache.Store
+//	store cache.Store
+	tpms client.TpmInterface
 }
 
 func tpmKeyFunc(obj interface{}) (string, error) {
@@ -39,46 +41,46 @@ func tpmKeyFunc(obj interface{}) (string, error) {
 
 func (t *TPMHandler) Setup(c client.Interface) error {
 	glog.Errorf("Setting up TPMHandler")
-	t.store = cache.NewStore(tpmKeyFunc)
-	reflector := cache.NewReflector(
-		&cache.ListWatch{
-			ListFunc: func(options api.ListOptions) (runtime.Object, error) {
-				return c.Tpms().List(options)
-			},
-			WatchFunc: func(options api.ListOptions) (watch.Interface, error) {
-				return c.Tpms().Watch(options)
-			},
-		},
-		&tpmapi.Tpm{},
-		t.store,
-		0,
-	)
-	reflector.Run()
+	t.tpms = c.Tpms()
+//	t.store = cache.NewStore(cache.MetaNamespaceKeyFunc)
+//	reflector := cache.NewReflector(
+//		&cache.ListWatch{
+//			ListFunc: func(options api.ListOptions) (runtime.Object, error) {
+//				return c.Tpms().List(options)
+//			},
+//			WatchFunc: func(options api.ListOptions) (watch.Interface, error) {
+//				return c.Tpms().Watch(options)
+//			},
+//		},
+//		&tpmapi.Tpm{},
+//		t.store,
+//		0,
+//	)
+//	reflector.Run()
 	return nil
 }
 
 func (t *TPMHandler) Get(address string, allowEmpty bool) (*tpmapi.Tpm, error) {
 	var tpm *tpmapi.Tpm
-	var ok bool
+//	var ok bool
 
 	c := tpmclient.New(address)
 	ekcert, err := c.GetEKCert()
 
 	if err != nil {
-		glog.Errorf("No ekcert: %p", err)
+		glog.Errorf("No ekcert: %v", err)
 		return nil, err
 	}
 
 	eksha := sha1.Sum(ekcert)
 	ekhash := hex.EncodeToString(eksha[:])
-	objlocation := fmt.Sprintf("com.coreos/tpm/%s", ekhash)
-	glog.Errorf("Getting %s", objlocation)
-	tpmobj, exists, err := t.store.GetByKey(objlocation)
+	glog.Errorf("Getting %s", ekhash)
+	tpm, err = t.tpms.Get(ekhash)
+//	tpmobj, exists, err := t.store.GetByKey(ekhash)
+
+//	if exists == false {
+//	if errors.IsNotFound(err) {
 	if err != nil {
-		glog.Errorf("Can't get tpmdata: %p", err)
-		return nil, err
-	}
-	if exists == false {
 		glog.Errorf("No existing object")
 		if (allowEmpty == false) {
 			return nil, nil
@@ -95,19 +97,24 @@ func (t *TPMHandler) Get(address string, allowEmpty bool) (*tpmapi.Tpm, error) {
 			},
 			EKCert: ekcert,
 		}
-		err = t.store.Add(tpm)
+//		err = t.store.Add(tpm)
+		glog.Errorf("Name is %s", tpm.ObjectMeta.Name)
+		tpm, err = t.tpms.Create(tpm)
 		if err != nil {
-			glog.Errorf("Can't create new tpmdata object")
+			glog.Errorf("Can't create new tpmdata object: %v", err)
 			return nil, err
 		}
-	} else {
-		glog.Errorf("Object exists")
-		tpm, ok = tpmobj.(*tpmapi.Tpm)
-		if !ok {
-			glog.Errorf("Bad TPM object")
-			return nil, fmt.Errorf("Bad TPM object")
-		}
+//	} else if err != nil {
+//		glog.Errorf("Can't get tpmdata: %v", err)
+//		return nil, err
 	}
+//		glog.Errorf("Object exists")
+//		tpm, ok = tpmobj.(*tpmapi.Tpm)
+//		if !ok {
+//			glog.Errorf("Bad TPM object")
+//			return nil, fmt.Errorf("Bad TPM object")
+//		}
+//	}
 
 	if tpm.AIKPub == nil || tpm.AIKBlob == nil {
 		secret := make([]byte, 16)
@@ -137,7 +144,7 @@ func (t *TPMHandler) Get(address string, allowEmpty bool) (*tpmapi.Tpm, error) {
 		}
 		tpm.AIKPub = aikpub
 		tpm.AIKBlob = aikblob
-		err = t.store.Update(tpm)
+		tpm, err = t.tpms.Update(tpm)
 		if err != nil {
 			glog.Errorf("Failed to update tpm data")
 			return nil, err

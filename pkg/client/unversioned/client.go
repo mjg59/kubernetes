@@ -105,7 +105,7 @@ func (c *Client) ComponentStatuses() ComponentStatusInterface {
 }
 
 func (c *Client) Tpms() TpmInterface {
-	return newTpms(c)
+	return newTpms(c.TpmClient)
 }
 
 // Client is the implementation of a Kubernetes client.
@@ -113,6 +113,7 @@ type Client struct {
 	*RESTClient
 	*ExtensionsClient
 	*DiscoveryClient
+	*TpmClient
 }
 
 func stringDoesntExistIn(str string, slice []string) bool {

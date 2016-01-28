@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 )
 
@@ -129,6 +130,7 @@ func (s *Scheme) AddKnownTypes(gv unversioned.GroupVersion, types ...interface{}
 		}
 
 		gvk := gv.WithKind(t.Name())
+		glog.Errorf("Adding %v (%v)", gvk, t.Name())
 		s.gvkToType[gvk] = t
 		s.typeToGVK[t] = append(s.typeToGVK[t], gvk)
 	}

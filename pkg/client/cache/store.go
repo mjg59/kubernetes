@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/api/meta"
 )
 
@@ -72,7 +73,7 @@ type ExplicitKey string
 //
 // TODO: replace key-as-string with a key-as-struct so that this
 // packing/unpacking won't be necessary.
-func MetaNamespaceKeyFunc(obj interface{}) (string, error) {
+func MetaNamespaceKeyFunc(obj interface{}) (string, error) {	
 	if key, ok := obj.(ExplicitKey); ok {
 		return string(key), nil
 	}
@@ -80,6 +81,7 @@ func MetaNamespaceKeyFunc(obj interface{}) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("object has no meta: %v", err)
 	}
+	glog.Errorf("Namespace: %s Name: %s", meta.GetNamespace(), meta.GetName())
 	if len(meta.GetNamespace()) > 0 {
 		return meta.GetNamespace() + "/" + meta.GetName(), nil
 	}

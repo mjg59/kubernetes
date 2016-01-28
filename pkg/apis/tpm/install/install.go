@@ -24,12 +24,12 @@ import (
 	"github.com/golang/glog"
 
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/latest"
 	"k8s.io/kubernetes/pkg/api/meta"
-	"k8s.io/kubernetes/pkg/api/registered"
 	"k8s.io/kubernetes/pkg/api/unversioned"
+        "k8s.io/kubernetes/pkg/apimachinery"
+	"k8s.io/kubernetes/pkg/apimachinery/registered"
 	"k8s.io/kubernetes/pkg/apis/tpm"
-	"k8s.io/kubernetes/pkg/apis/tpm/v1beta1"
+	"k8s.io/kubernetes/pkg/apis/tpm/v1"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/util/sets"
 )
@@ -39,11 +39,10 @@ const importPrefix = "k8s.io/kubernetes/pkg/apis/tpm"
 var accessor = meta.NewAccessor()
 
 // availableVersions lists all known external versions for this group from most preferred to least preferred
-var availableVersions = []unversioned.GroupVersion{v1beta1.SchemeGroupVersion}
+var availableVersions = []unversioned.GroupVersion{v1.SchemeGroupVersion}
 
 func init() {
-	registered.RegisterVersions(availableVersions...)
-
+	registered.RegisterVersions(availableVersions)
 	externalVersions := []unversioned.GroupVersion{}
 	for _, v := range availableVersions {
 		if registered.IsAllowedVersion(v) {
@@ -70,16 +69,15 @@ func enableVersions(externalVersions []unversioned.GroupVersion) error {
 	addVersionsToScheme(externalVersions...)
 	preferredExternalVersion := externalVersions[0]
 
-	groupMeta := latest.GroupMeta{
+	groupMeta := apimachinery.GroupMeta{
 		GroupVersion:  preferredExternalVersion,
 		GroupVersions: externalVersions,
-		Codec:         runtime.CodecFor(api.Scheme, preferredExternalVersion),
 		RESTMapper:    newRESTMapper(externalVersions),
 		SelfLinker:    runtime.SelfLinker(accessor),
 		InterfacesFor: interfacesFor,
 	}
 
-	if err := latest.RegisterGroup(groupMeta); err != nil {
+	if err := registered.RegisterGroup(groupMeta); err != nil {
 		return err
 	}
 	api.RegisterRESTMapper(groupMeta.RESTMapper)
@@ -96,8 +94,8 @@ func addVersionsToScheme(externalVersions ...unversioned.GroupVersion) {
 			continue
 		}
 		switch v {
-		case v1beta1.SchemeGroupVersion:
-			v1beta1.AddToScheme(api.Scheme)
+		case v1.SchemeGroupVersion:
+			v1.AddToScheme(api.Scheme)
 		}
 	}
 }
@@ -115,14 +113,13 @@ func newRESTMapper(externalVersions []unversioned.GroupVersion) meta.RESTMapper 
 
 func interfacesFor(version unversioned.GroupVersion) (*meta.VersionInterfaces, error) {
 	switch version {
-	case v1beta1.SchemeGroupVersion:
+	case v1.SchemeGroupVersion:
 		return &meta.VersionInterfaces{
-			Codec:            v1beta1.Codec,
 			ObjectConvertor:  api.Scheme,
 			MetadataAccessor: accessor,
 		}, nil
 	default:
-		g, _ := latest.Group(tpm.GroupName)
+		g, _ := registered.Group(tpm.GroupName)
 		return nil, fmt.Errorf("unsupported storage version: %s (valid: %v)", version, g.GroupVersions)
 	}
 }

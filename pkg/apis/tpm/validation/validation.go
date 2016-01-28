@@ -17,11 +17,13 @@ limitations under the License.
 package validation
 
 import (
+	"github.com/golang/glog"
 	tpmapi "k8s.io/kubernetes/pkg/apis/tpm"
 	"k8s.io/kubernetes/pkg/util/validation/field"
 )
 
 func ValidateTpm(tpm *tpmapi.Tpm) field.ErrorList {
+	glog.Errorf("In TPM validation")
 	allErrs := field.ErrorList{}
 
 	return allErrs

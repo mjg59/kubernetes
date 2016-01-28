@@ -158,7 +158,7 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 	}
 	kind := fqKindToRegister.Kind
 
-	glog.Errorf("Got kind %v", kind)
+	glog.Errorf("Got kind %v, group version %s", kind, a.group.GroupVersion.Version)
 
 	versionedPtr, err := a.group.Creater.New(a.group.GroupVersion.WithKind(kind))
 	if err != nil {

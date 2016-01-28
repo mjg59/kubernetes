@@ -21,6 +21,7 @@ import (
 	"io"
 
 	"github.com/ghodss/yaml"
+	"github.com/golang/glog"
 	"github.com/ugorji/go/codec"
 
 	"k8s.io/kubernetes/pkg/api/unversioned"
@@ -66,6 +67,7 @@ type Serializer struct {
 // normal JSON/YAML unmarshalling. If into is provided and the original data is not fully qualified with kind/version/group, the type of
 // the into will be used to alter the returned gvk. On success or most errors, the method will return the calculated schema kind.
 func (s *Serializer) Decode(originalData []byte, gvk *unversioned.GroupVersionKind, into runtime.Object) (runtime.Object, *unversioned.GroupVersionKind, error) {
+	glog.Errorf("In Decode()")
 	if versioned, ok := into.(*runtime.VersionedObjects); ok {
 		into = versioned.Last()
 		obj, actual, err := s.Decode(originalData, gvk, into)
@@ -85,11 +87,12 @@ func (s *Serializer) Decode(originalData []byte, gvk *unversioned.GroupVersionKi
 		data = altered
 	}
 
+	glog.Errorf("Uninterpreted data: %s", data)
 	actual, err := s.meta.Interpret(data)
 	if err != nil {
 		return nil, nil, err
 	}
-
+	glog.Errorf("Interpreted data :%s", actual)
 	if gvk != nil {
 		// apply kind and version defaulting from provided default
 		if len(actual.Kind) == 0 {
@@ -105,12 +108,14 @@ func (s *Serializer) Decode(originalData []byte, gvk *unversioned.GroupVersionKi
 	}
 
 	if unk, ok := into.(*runtime.Unknown); ok && unk != nil {
+		glog.Errorf("UNKNOWN TYPE")
 		unk.RawJSON = originalData
 		// TODO: set content type here
 		unk.GetObjectKind().SetGroupVersionKind(actual)
 		return unk, actual, nil
 	}
 
+	glog.Errorf("Known type")
 	if into != nil {
 		typed, _, err := s.typer.ObjectKind(into)
 		switch {

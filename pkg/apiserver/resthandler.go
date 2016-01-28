@@ -367,7 +367,7 @@ func createHandler(r rest.NamedCreater, scope RequestScope, typer runtime.Object
 			scope.err(err, req, res)
 			return
 		}
-
+		glog.Errorf("BODY IS %s", body)
 		defaultGVK := scope.Kind
 		original := r.New()
 		trace.Step("About to convert to expected version")

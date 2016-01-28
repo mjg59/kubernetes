@@ -18,6 +18,7 @@ package unversioned
 
 import (
 	"k8s.io/kubernetes/pkg/api"
+        "k8s.io/kubernetes/pkg/apimachinery/registered"
 	"k8s.io/kubernetes/pkg/apis/tpm"
 	"k8s.io/kubernetes/pkg/watch"
 )
@@ -30,6 +31,10 @@ type TpmNamespacer interface {
 	Tpms() TpmInterface
 }
 
+type TpmClient struct {
+	*RESTClient
+}
+
 type TpmInterface interface {
 	Get(string) (*tpm.Tpm, error)
 	List(opts api.ListOptions) (*tpm.TpmList, error)
@@ -40,13 +45,51 @@ type TpmInterface interface {
 }
 
 type Tpms struct {
-	client    *Client
+	client    *TpmClient
 }
 
 // Tpms should implement tpmInterface
 var _ TpmInterface = &Tpms{}
 
-func newTpms(c *Client) *Tpms {
+func setTpmDefaults(config *Config) error {
+	// if experimental group is not registered, return an error
+	g, err := registered.Group(tpm.GroupName)
+	if err != nil {
+		return err
+	}
+	config.APIPath = defaultAPIPath
+	if config.UserAgent == "" {
+		config.UserAgent = DefaultKubernetesUserAgent()
+	}
+	// TODO: Unconditionally set the config.Version, until we fix the config.
+	//if config.Version == "" {
+	copyGroupVersion := g.GroupVersion
+	config.GroupVersion = &copyGroupVersion
+	//}
+
+	config.Codec = api.Codecs.LegacyCodec(*config.GroupVersion)
+	if config.QPS == 0 {
+		config.QPS = 5
+	}
+	if config.Burst == 0 {
+		config.Burst = 10
+	}
+	return nil
+}
+
+func newTpmClient(c *Config) (*TpmClient, error) {
+	config := *c
+	if err := setTpmDefaults(&config); err != nil {
+		return nil, err
+	}
+	client, err := RESTClientFor(&config)
+	if err != nil {
+		return nil, err
+	}
+	return &TpmClient{client}, nil
+}	
+
+func newTpms(c *TpmClient) *Tpms {
 	return &Tpms{
 		client:    c,
 	}
@@ -55,7 +98,6 @@ func newTpms(c *Client) *Tpms {
 func (c *Tpms) Get(name string) (*tpm.Tpm, error) {
 	result := &tpm.Tpm{}
 	err := c.client.Get().
-		Namespace("").
 		Resource(TpmResourceName).
 		Name(name).
 		Do().
@@ -67,7 +109,6 @@ func (c *Tpms) Get(name string) (*tpm.Tpm, error) {
 func (c *Tpms) List(opts api.ListOptions) (*tpm.TpmList, error) {
 	result := &tpm.TpmList{}
 	err := c.client.Get().
-		Namespace("").
 		Resource(TpmResourceName).
 		VersionedParams(&opts, api.Scheme).
 		Do().
@@ -79,7 +120,6 @@ func (c *Tpms) List(opts api.ListOptions) (*tpm.TpmList, error) {
 func (c *Tpms) Create(cfg *tpm.Tpm) (*tpm.Tpm, error) {
 	result := &tpm.Tpm{}
 	err := c.client.Post().
-		Namespace("").
 		Resource(TpmResourceName).
 		Body(cfg).
 		Do().
@@ -90,7 +130,6 @@ func (c *Tpms) Create(cfg *tpm.Tpm) (*tpm.Tpm, error) {
 
 func (c *Tpms) Delete(name string) error {
 	return c.client.Delete().
-		Namespace("").
 		Resource(TpmResourceName).
 		Name(name).
 		Do().
@@ -101,7 +140,6 @@ func (c *Tpms) Update(cfg *tpm.Tpm) (*tpm.Tpm, error) {
 	result := &tpm.Tpm{}
 
 	err := c.client.Put().
-		Namespace("").
 		Resource(TpmResourceName).
 		Name(cfg.Name).
 		Body(cfg).
@@ -114,7 +152,6 @@ func (c *Tpms) Update(cfg *tpm.Tpm) (*tpm.Tpm, error) {
 func (c *Tpms) Watch(opts api.ListOptions) (watch.Interface, error) {
 	return c.client.Get().
 		Prefix("watch").
-		Namespace("").
 		Resource(TpmResourceName).
 		VersionedParams(&opts, api.Scheme).
 		Watch()

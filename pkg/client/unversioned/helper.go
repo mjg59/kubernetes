@@ -140,16 +140,23 @@ func New(c *Config) (*Client, error) {
 		return nil, err
 	}
 
-	if _, err := registered.Group(extensions.GroupName); err != nil {
-		return &Client{RESTClient: client, ExtensionsClient: nil, DiscoveryClient: discoveryClient}, nil
+	tpmConfig := *c
+	tpmClient, err := newTpmClient(&tpmConfig)
+	if err != nil {
+		return nil, err
 	}
+
+	if _, err := registered.Group(extensions.GroupName); err != nil {
+		return &Client{RESTClient: client, ExtensionsClient: nil, DiscoveryClient: discoveryClient, TpmClient: tpmClient}, nil
+	}
+
 	experimentalConfig := *c
 	experimentalClient, err := NewExtensions(&experimentalConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Client{RESTClient: client, ExtensionsClient: experimentalClient, DiscoveryClient: discoveryClient}, nil
+	return &Client{RESTClient: client, ExtensionsClient: experimentalClient, DiscoveryClient: discoveryClient, TpmClient: tpmClient}, nil
 }
 
 // MatchesServerVersion queries the server to compares the build version
