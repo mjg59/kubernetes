@@ -2366,3 +2366,15 @@ func ValidateLoadBalancerStatus(status *api.LoadBalancerStatus, fldPath *field.P
 	}
 	return allErrs
 }
+
+func ValidateTpm(tpm *api.Tpm) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	return allErrs
+}
+
+func ValidateTpmUpdate(old *api.Tpm, new *api.Tpm) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	return allErrs
+}

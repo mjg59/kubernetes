@@ -2709,3 +2709,27 @@ const (
 	// "default-scheduler" is the name of default scheduler.
 	DefaultSchedulerName = "default-scheduler"
 )
+
+// Information about a specific TPM
+type Tpm struct {
+	unversioned.TypeMeta `json:",inline"`
+	// Standard object metadata; More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata.
+	ObjectMeta `json:"metadata,omitempty"`
+	// The TPM's EK certificate
+	EKCert []byte `json:"ekcert,omitempty"`
+	// The encrypted AIK keyblob
+	AIKBlob []byte `json:"aikblob,omitempty"`
+	// The public half of AIK
+	AIKPub []byte `json:"aikpub,omitempty"`
+	// The current address associated with the TPM
+	Address string `json:"address,omitempty"`
+}
+
+// List of all known TPMs
+type TpmList struct {
+	unversioned.TypeMeta `json:",inline"`
+	//More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata
+	unversioned.ListMeta `json:"metadata,omitempty"`
+	// Items is the list of Tpm objects
+	Items [] Tpm `json:"items,omitempty"`
+}

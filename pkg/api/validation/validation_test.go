@@ -4614,3 +4614,6 @@ func TestValidateConfigMapUpdate(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateTpm(t *testing.T) {
+}

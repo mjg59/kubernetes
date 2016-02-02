@@ -286,6 +286,10 @@ func (c *Fake) ConfigMaps(namespace string) client.ConfigMapsInterface {
 	return &FakeConfigMaps{Fake: c, Namespace: namespace}
 }
 
+func (c *Fake) Tpms() client.TpmInterface {
+	return &FakeTpms{Fake: c}
+}
+
 // SwaggerSchema returns an empty swagger.ApiDeclaration for testing
 func (c *Fake) SwaggerSchema(version unversioned.GroupVersion) (*swagger.ApiDeclaration, error) {
 	action := ActionImpl{}

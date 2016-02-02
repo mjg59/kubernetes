@@ -64,6 +64,7 @@ import (
 	ipallocator "k8s.io/kubernetes/pkg/registry/service/ipallocator"
 	serviceaccountetcd "k8s.io/kubernetes/pkg/registry/serviceaccount/etcd"
 	thirdpartyresourceetcd "k8s.io/kubernetes/pkg/registry/thirdpartyresource/etcd"
+	tpmetcd "k8s.io/kubernetes/pkg/registry/tpm/etcd"
 	"k8s.io/kubernetes/pkg/registry/thirdpartyresourcedata"
 	thirdpartyresourcedataetcd "k8s.io/kubernetes/pkg/registry/thirdpartyresourcedata/etcd"
 	"k8s.io/kubernetes/pkg/runtime"
@@ -320,6 +321,8 @@ func (m *Master) initV1ResourcesStorage(c *Config) {
 
 	controllerStorage, controllerStatusStorage := controlleretcd.NewREST(dbClient("replicationControllers"), storageDecorator)
 
+	tpmStorage := tpmetcd.NewREST(dbClient("tpms"), storageDecorator)
+
 	m.v1ResourcesStorage = map[string]rest.Storage{
 		"pods":             podStorage.Pod,
 		"pods/attach":      podStorage.Attach,
@@ -355,6 +358,7 @@ func (m *Master) initV1ResourcesStorage(c *Config) {
 		"persistentVolumeClaims":        persistentVolumeClaimStorage,
 		"persistentVolumeClaims/status": persistentVolumeClaimStatusStorage,
 		"configMaps":                    configMapStorage,
+		"tpms":                          tpmStorage,
 
 		"componentStatuses": componentstatus.NewStorage(func() map[string]apiserver.Server { return m.getServersToValidate(c) }),
 	}
