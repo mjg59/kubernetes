@@ -2986,6 +2986,54 @@ func Convert_api_TCPSocketAction_To_v1_TCPSocketAction(in *api.TCPSocketAction, 
 	return autoConvert_api_TCPSocketAction_To_v1_TCPSocketAction(in, out, s)
 }
 
+func autoConvert_api_Tpm_To_v1_Tpm(in *api.Tpm, out *Tpm, s conversion.Scope) error {
+	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
+		defaulting.(func(*api.Tpm))(in)
+	}
+	if err := Convert_api_ObjectMeta_To_v1_ObjectMeta(&in.ObjectMeta, &out.ObjectMeta, s); err != nil {
+		return err
+	}
+	if err := conversion.ByteSliceCopy(&in.EKCert, &out.EKCert, s); err != nil {
+		return err
+	}
+	if err := conversion.ByteSliceCopy(&in.AIKBlob, &out.AIKBlob, s); err != nil {
+		return err
+	}
+	if err := conversion.ByteSliceCopy(&in.AIKPub, &out.AIKPub, s); err != nil {
+		return err
+	}
+	out.Address = in.Address
+	return nil
+}
+
+func Convert_api_Tpm_To_v1_Tpm(in *api.Tpm, out *Tpm, s conversion.Scope) error {
+	return autoConvert_api_Tpm_To_v1_Tpm(in, out, s)
+}
+
+func autoConvert_api_TpmList_To_v1_TpmList(in *api.TpmList, out *TpmList, s conversion.Scope) error {
+	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
+		defaulting.(func(*api.TpmList))(in)
+	}
+	if err := api.Convert_unversioned_ListMeta_To_unversioned_ListMeta(&in.ListMeta, &out.ListMeta, s); err != nil {
+		return err
+	}
+	if in.Items != nil {
+		out.Items = make([]Tpm, len(in.Items))
+		for i := range in.Items {
+			if err := Convert_api_Tpm_To_v1_Tpm(&in.Items[i], &out.Items[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
+	return nil
+}
+
+func Convert_api_TpmList_To_v1_TpmList(in *api.TpmList, out *TpmList, s conversion.Scope) error {
+	return autoConvert_api_TpmList_To_v1_TpmList(in, out, s)
+}
+
 func autoConvert_api_Volume_To_v1_Volume(in *api.Volume, out *Volume, s conversion.Scope) error {
 	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
 		defaulting.(func(*api.Volume))(in)
@@ -6040,6 +6088,54 @@ func Convert_v1_TCPSocketAction_To_api_TCPSocketAction(in *TCPSocketAction, out 
 	return autoConvert_v1_TCPSocketAction_To_api_TCPSocketAction(in, out, s)
 }
 
+func autoConvert_v1_Tpm_To_api_Tpm(in *Tpm, out *api.Tpm, s conversion.Scope) error {
+	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
+		defaulting.(func(*Tpm))(in)
+	}
+	if err := Convert_v1_ObjectMeta_To_api_ObjectMeta(&in.ObjectMeta, &out.ObjectMeta, s); err != nil {
+		return err
+	}
+	if err := conversion.ByteSliceCopy(&in.EKCert, &out.EKCert, s); err != nil {
+		return err
+	}
+	if err := conversion.ByteSliceCopy(&in.AIKBlob, &out.AIKBlob, s); err != nil {
+		return err
+	}
+	if err := conversion.ByteSliceCopy(&in.AIKPub, &out.AIKPub, s); err != nil {
+		return err
+	}
+	out.Address = in.Address
+	return nil
+}
+
+func Convert_v1_Tpm_To_api_Tpm(in *Tpm, out *api.Tpm, s conversion.Scope) error {
+	return autoConvert_v1_Tpm_To_api_Tpm(in, out, s)
+}
+
+func autoConvert_v1_TpmList_To_api_TpmList(in *TpmList, out *api.TpmList, s conversion.Scope) error {
+	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
+		defaulting.(func(*TpmList))(in)
+	}
+	if err := api.Convert_unversioned_ListMeta_To_unversioned_ListMeta(&in.ListMeta, &out.ListMeta, s); err != nil {
+		return err
+	}
+	if in.Items != nil {
+		out.Items = make([]api.Tpm, len(in.Items))
+		for i := range in.Items {
+			if err := Convert_v1_Tpm_To_api_Tpm(&in.Items[i], &out.Items[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
+	return nil
+}
+
+func Convert_v1_TpmList_To_api_TpmList(in *TpmList, out *api.TpmList, s conversion.Scope) error {
+	return autoConvert_v1_TpmList_To_api_TpmList(in, out, s)
+}
+
 func autoConvert_v1_Volume_To_api_Volume(in *Volume, out *api.Volume, s conversion.Scope) error {
 	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
 		defaulting.(func(*Volume))(in)
@@ -6356,6 +6452,8 @@ func init() {
 		autoConvert_api_ServiceStatus_To_v1_ServiceStatus,
 		autoConvert_api_Service_To_v1_Service,
 		autoConvert_api_TCPSocketAction_To_v1_TCPSocketAction,
+		autoConvert_api_TpmList_To_v1_TpmList,
+		autoConvert_api_Tpm_To_v1_Tpm,
 		autoConvert_api_VolumeMount_To_v1_VolumeMount,
 		autoConvert_api_VolumeSource_To_v1_VolumeSource,
 		autoConvert_api_Volume_To_v1_Volume,
@@ -6482,6 +6580,8 @@ func init() {
 		autoConvert_v1_ServiceStatus_To_api_ServiceStatus,
 		autoConvert_v1_Service_To_api_Service,
 		autoConvert_v1_TCPSocketAction_To_api_TCPSocketAction,
+		autoConvert_v1_TpmList_To_api_TpmList,
+		autoConvert_v1_Tpm_To_api_Tpm,
 		autoConvert_v1_VolumeMount_To_api_VolumeMount,
 		autoConvert_v1_VolumeSource_To_api_VolumeSource,
 		autoConvert_v1_Volume_To_api_Volume,

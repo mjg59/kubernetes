@@ -1431,6 +1431,29 @@ func (TCPSocketAction) SwaggerDoc() map[string]string {
 	return map_TCPSocketAction
 }
 
+var map_Tpm = map[string]string{
+	"":         "Information about a specific TPM",
+	"metadata": "Standard object metadata; More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata.",
+	"ekcert":   "The TPM's EK certificate",
+	"aikblob":  "The encrypted AIK keyblob",
+	"aikpub":   "The public half of AIK",
+	"address":  "The current address associated with the TPM",
+}
+
+func (Tpm) SwaggerDoc() map[string]string {
+	return map_Tpm
+}
+
+var map_TpmList = map[string]string{
+	"":         "List of all known TPMs",
+	"metadata": "More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata",
+	"items":    "Items is the list of Tpm objects",
+}
+
+func (TpmList) SwaggerDoc() map[string]string {
+	return map_TpmList
+}
+
 var map_Volume = map[string]string{
 	"":     "Volume represents a named volume in a pod that may be accessed by any container in the pod.",
 	"name": "Volume's name. Must be a DNS_LABEL and unique within the pod. More info: http://releases.k8s.io/HEAD/docs/user-guide/identifiers.md#names",

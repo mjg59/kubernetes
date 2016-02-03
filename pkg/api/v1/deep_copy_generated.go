@@ -2345,6 +2345,61 @@ func deepCopy_v1_TCPSocketAction(in TCPSocketAction, out *TCPSocketAction, c *co
 	return nil
 }
 
+func deepCopy_v1_Tpm(in Tpm, out *Tpm, c *conversion.Cloner) error {
+	if err := deepCopy_unversioned_TypeMeta(in.TypeMeta, &out.TypeMeta, c); err != nil {
+		return err
+	}
+	if err := deepCopy_v1_ObjectMeta(in.ObjectMeta, &out.ObjectMeta, c); err != nil {
+		return err
+	}
+	if in.EKCert != nil {
+		out.EKCert = make([]uint8, len(in.EKCert))
+		for i := range in.EKCert {
+			out.EKCert[i] = in.EKCert[i]
+		}
+	} else {
+		out.EKCert = nil
+	}
+	if in.AIKBlob != nil {
+		out.AIKBlob = make([]uint8, len(in.AIKBlob))
+		for i := range in.AIKBlob {
+			out.AIKBlob[i] = in.AIKBlob[i]
+		}
+	} else {
+		out.AIKBlob = nil
+	}
+	if in.AIKPub != nil {
+		out.AIKPub = make([]uint8, len(in.AIKPub))
+		for i := range in.AIKPub {
+			out.AIKPub[i] = in.AIKPub[i]
+		}
+	} else {
+		out.AIKPub = nil
+	}
+	out.Address = in.Address
+	return nil
+}
+
+func deepCopy_v1_TpmList(in TpmList, out *TpmList, c *conversion.Cloner) error {
+	if err := deepCopy_unversioned_TypeMeta(in.TypeMeta, &out.TypeMeta, c); err != nil {
+		return err
+	}
+	if err := deepCopy_unversioned_ListMeta(in.ListMeta, &out.ListMeta, c); err != nil {
+		return err
+	}
+	if in.Items != nil {
+		out.Items = make([]Tpm, len(in.Items))
+		for i := range in.Items {
+			if err := deepCopy_v1_Tpm(in.Items[i], &out.Items[i], c); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
+	return nil
+}
+
 func deepCopy_v1_Volume(in Volume, out *Volume, c *conversion.Cloner) error {
 	out.Name = in.Name
 	if err := deepCopy_v1_VolumeSource(in.VolumeSource, &out.VolumeSource, c); err != nil {
@@ -2655,6 +2710,8 @@ func init() {
 		deepCopy_v1_ServiceSpec,
 		deepCopy_v1_ServiceStatus,
 		deepCopy_v1_TCPSocketAction,
+		deepCopy_v1_Tpm,
+		deepCopy_v1_TpmList,
 		deepCopy_v1_Volume,
 		deepCopy_v1_VolumeMount,
 		deepCopy_v1_VolumeSource,
