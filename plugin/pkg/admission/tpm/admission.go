@@ -18,9 +18,12 @@ limitations under the License.
 package admit
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 
+	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/admission"
 	"k8s.io/kubernetes/pkg/api"
         apierrors "k8s.io/kubernetes/pkg/api/errors"
@@ -31,17 +34,18 @@ import (
 
 func init() {
 	admission.RegisterPlugin("TPMAdmit", func(client client.Interface, config io.Reader) (admission.Interface, error) {
-		return NewTPMAdmit(client), nil
+		return NewTPMAdmit(client, config), nil
 	})	
 }
 
 // TPMAdmit is an implementation of admission.Interface which performs TPM-based validation of the request
 type tpmAdmit struct{
 	handler tpm.TPMHandler
+	pcrconfig string
 }
 
 func (t *tpmAdmit) Admit(a admission.Attributes) (err error) {
-	if a.GetOperation() != admission.Create  || a.GetKind() != api.Kind("Node") {
+	if (a.GetOperation() != admission.Create && a.GetOperation() != admission.Update) || a.GetKind() != api.Kind("Node") {
 		return nil
 	}
 	node, ok := a.GetObject().(*api.Node)
@@ -54,15 +58,34 @@ func (t *tpmAdmit) Admit(a admission.Attributes) (err error) {
 	}
 	tpmdata, err := t.handler.Get(address.String(), true)
 	if err != nil {
+		glog.Errorf("Unable to obtain TPM object: %v", err)
 		return admission.NewForbidden(a, fmt.Errorf("Unable to obtain TPM object: %v", err))
 	}
 	quote, log, err := tpm.Quote(tpmdata)
 	if err != nil {
+		glog.Errorf("Invalid quote provided: %v", err)
 		return admission.NewForbidden(a, fmt.Errorf("Invalid quote provided: %v", err))
 	}
-	err = tpm.ValidateLog(log, quote, []int{12, 13})
+	pcrconfig, err := ioutil.ReadFile(t.pcrconfig)
 	if err != nil {
+		glog.Errorf("Unable to read valid PCR configuration: %v", err)
+		return admission.NewForbidden(a, fmt.Errorf("Unable to read valid PCR configuration: %v", err))
+	}
+	var pcrdata map[string][]string
+	err = json.Unmarshal(pcrconfig, &pcrdata)
+	if err != nil {
+		glog.Errorf("Unable to parse valid PCR configuration: %v", err)
+		return admission.NewForbidden(a, fmt.Errorf("Can't parse PCR config: %v", err))
+	}
+	err = tpm.ValidateLog(log, quote, []int{4, 12, 13})
+	if err != nil {
+		glog.Errorf("TPM event log does not match quote")
 		return admission.NewForbidden(a, fmt.Errorf("TPM event log does not match quote"))
+	}
+	err = tpm.ValidatePCRs(quote, pcrdata)
+	if err != nil {
+		glog.Errorf("TPM quote PCRs don't validate")
+		return admission.NewForbidden(a, fmt.Errorf("TPM quote PCRs don't validate"))
 	}
 	return nil
 }
@@ -72,10 +95,25 @@ func (tpmAdmit) Handles(operation admission.Operation) bool {
 }
 
 // NewTPMAdmit creates a new TPMAdmit handler
-func NewTPMAdmit(c client.Interface) admission.Interface {
+func NewTPMAdmit(c client.Interface, config io.Reader) admission.Interface {
+	var pcrconfig string
 	var tpmhandler tpm.TPMHandler
 	tpmhandler.Setup(c)
+
+	jsondata, err := ioutil.ReadAll(config)
+	if err != nil {
+		return nil
+	}
+	var configdata map[string]interface{}
+	err = json.Unmarshal(jsondata, &configdata)
+	if err != nil {
+		return nil
+	}
+	if configdata["tpmadmit.pcrconfig"] != nil {
+		pcrconfig = configdata["tpmadmit.pcrconfig"].(string)
+	}
 	return &tpmAdmit{
 		handler: tpmhandler,
+		pcrconfig: pcrconfig,
 	}
 }
