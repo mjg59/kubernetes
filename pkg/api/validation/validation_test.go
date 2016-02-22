@@ -4616,4 +4616,117 @@ func TestValidateConfigMapUpdate(t *testing.T) {
 }
 
 func TestValidateTpm(t *testing.T) {
+	dummy := make([]byte, 1024)
+
+	successCases := []api.Tpm{
+		{
+			ObjectMeta: api.ObjectMeta{
+				Name: "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3",
+			},
+			EKCert: dummy,
+		},
+		{
+			ObjectMeta: api.ObjectMeta{
+				Name: "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3",
+			},
+			EKCert: dummy,
+			AIKPub: dummy,
+			AIKBlob: dummy,
+		},
+	}
+
+	for _, successCase := range successCases {
+		if errs := ValidateTpm(&successCase); len(errs) != 0 {
+			t.Errorf("expected success: %v", errs)
+		}
+	}
+
+	errorCases := map[string]api.Tpm{
+		"Invalid Name": {
+			ObjectMeta: api.ObjectMeta{
+				Name: "InvalidName",
+			},
+			EKCert: dummy,
+		},
+		"Empty EKCert": {
+			ObjectMeta: api.ObjectMeta{
+				Name: "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3",
+			},
+		},
+
+	}
+
+	for k, v := range errorCases {
+		errs := ValidateTpm(&v)
+		if len(errs) == 0 {
+			t.Errorf("expected failure for %s", k)
+		}
+	}
+}
+
+func TestValidateTpmUpdate(t *testing.T) {
+	dummy := make([]byte, 1024)
+	tests := []struct {
+		oldTpm api.Tpm
+		newTpm api.Tpm
+		valid  bool
+	}{
+		{
+			api.Tpm{
+				ObjectMeta: api.ObjectMeta{
+					Name: "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3",
+				},
+				EKCert: dummy,
+			},
+			api.Tpm{
+				ObjectMeta: api.ObjectMeta{
+					Name: "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3",
+				},
+				EKCert: dummy,
+			}, true,
+		},
+		{
+			api.Tpm{
+				ObjectMeta: api.ObjectMeta{
+					Name: "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3",
+				},
+				EKCert: dummy,
+			},
+			api.Tpm{
+				ObjectMeta: api.ObjectMeta{
+					Name: "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3",
+				},
+				EKCert: dummy,
+				AIKPub: dummy,
+				AIKBlob: dummy,
+			}, true,
+		},
+		{
+			api.Tpm{
+				ObjectMeta: api.ObjectMeta{
+					Name: "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3",
+				},
+				EKCert: dummy,
+			},
+			api.Tpm{
+				ObjectMeta: api.ObjectMeta{
+					Name: "invalid",
+				},
+				EKCert: dummy,
+			}, false,
+		},
+	}
+
+	for i, test := range tests {
+		test.oldTpm.ObjectMeta.ResourceVersion = "1"
+		test.newTpm.ObjectMeta.ResourceVersion = "1"
+		errs := ValidateTpmUpdate(&test.newTpm, &test.oldTpm)
+                if test.valid && len(errs) > 0 {
+			t.Errorf("%d: Unexpected error: %v", i, errs)
+			t.Logf("%#v vs %#v", test.oldTpm.ObjectMeta, test.newTpm.ObjectMeta)
+		}
+		if !test.valid && len(errs) == 0 {
+			t.Errorf("%d: Unexpected non-error", i)
+		}
+	}
 }

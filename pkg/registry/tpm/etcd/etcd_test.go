@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/apis/extensions"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/registry/generic"
@@ -30,23 +29,17 @@ import (
 )
 
 func newStorage(t *testing.T) (*REST, *etcdtesting.EtcdTestServer) {
-	etcdStorage, server := registrytest.NewEtcdStorage(t, "extensions")
+	etcdStorage, server := registrytest.NewEtcdStorage(t, "")
 	return NewREST(etcdStorage, generic.UndecoratedStorage), server
 }
 
-func validNewTpm() *tpm.Tpm {
-	return &tpm.Tpm{
+func validNewTpm() *api.Tpm {
+	ekcert := make([]byte, 1024)
+	return &api.Tpm{
 		ObjectMeta: api.ObjectMeta{
-			Name:      "foo",
-			Namespace: "default",
-			Labels: map[string]string{
-				"label-1": "value-1",
-				"label-2": "value-2",
+			Name:      "2429c65f71454606579edab033e76cdb5bf6187c",
 			},
-		},
-		Data: map[string]string{
-			"test": "data",
-		},
+		EKCert: ekcert,
 	}
 }
 
@@ -54,30 +47,15 @@ func TestCreate(t *testing.T) {
 	storage, server := newStorage(t)
 	defer server.Terminate(t)
 	test := registrytest.New(t, storage.Etcd)
-
 	validTpm := validNewTpm()
-	validTpm.ObjectMeta = api.ObjectMeta{
-		GenerateName: "foo-",
-	}
 
 	test.TestCreate(
 		validTpm,
-		&tpm.Tpm{
-			ObjectMeta: api.ObjectMeta{Name: "badName"},
-			Data: map[string]string{
-				"key": "value",
-			},
-		},
-		&tpm.Tpm{
-			ObjectMeta: api.ObjectMeta{Name: "name-2"},
-			Data: map[string]string{
-				"..dotfile": "do: nothing\n",
-			},
-		},
 	)
 }
 
 func TestUpdate(t *testing.T) {
+	dummy := make([]byte, 1024)
 	storage, server := newStorage(t)
 	defer server.Terminate(t)
 	test := registrytest.New(t, storage.Etcd)
@@ -86,15 +64,15 @@ func TestUpdate(t *testing.T) {
 		validNewTpm(),
 		// updateFunc
 		func(obj runtime.Object) runtime.Object {
-			cfg := obj.(*tpm.Tpm)
-			cfg.Data["update-test"] = "value"
-			return cfg
+			testtpm := obj.(*api.Tpm)
+			testtpm.AIKPub = dummy
+			return testtpm
 		},
 		// invalid updateFunc
 		func(obj runtime.Object) runtime.Object {
-			cfg := obj.(*tpm.Tpm)
-			cfg.Data["badKey"] = "value"
-			return cfg
+			testtpm := obj.(*api.Tpm)
+			testtpm.EKCert = []byte{}
+			return testtpm
 		},
 	)
 }

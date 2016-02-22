@@ -50,7 +50,6 @@ func (strategy) NamespaceScoped() bool {
 }
 
 func (strategy) PrepareForCreate(obj runtime.Object) {
-	_ = obj.(*api.Tpm)
 }
 
 func (strategy) Validate(ctx api.Context, obj runtime.Object) field.ErrorList {
@@ -68,8 +67,6 @@ func (strategy) AllowCreateOnUpdate() bool {
 }
 
 func (strategy) PrepareForUpdate(newObj, oldObj runtime.Object) {
-	_ = oldObj.(*api.Tpm)
-	_ = newObj.(*api.Tpm)
 }
 
 func (strategy) AllowUnconditionalUpdate() bool {
@@ -77,9 +74,9 @@ func (strategy) AllowUnconditionalUpdate() bool {
 }
 
 func (strategy) ValidateUpdate(ctx api.Context, newObj, oldObj runtime.Object) field.ErrorList {
-	oldCfg, newCfg := oldObj.(*api.Tpm), newObj.(*api.Tpm)
+	oldTpm, newTpm := oldObj.(*api.Tpm), newObj.(*api.Tpm)
 
-	return validation.ValidateTpmUpdate(newCfg, oldCfg)
+	return validation.ValidateTpmUpdate(newTpm, oldTpm)
 }
 
 // TpmToSelectableFields returns a field set that represents the object for matching purposes.
@@ -93,12 +90,12 @@ func MatchTpm(label labels.Selector, field fields.Selector) generic.Matcher {
 		Label: label,
 		Field: field,
 		GetAttrs: func(obj runtime.Object) (labels.Set, fields.Set, error) {
-			cfg, ok := obj.(*api.Tpm)
+			newTpm, ok := obj.(*api.Tpm)
 			if !ok {
 				return nil, nil, fmt.Errorf("given object is not of type Tpm")
 			}
 
-			return labels.Set(cfg.ObjectMeta.Labels), TpmToSelectableFields(cfg), nil
+			return labels.Set(newTpm.ObjectMeta.Labels), TpmToSelectableFields(newTpm), nil
 		},
 	}
 }

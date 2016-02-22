@@ -20,50 +20,16 @@ import (
 	"testing"
 
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/apis/extensions"
+	"k8s.io/kubernetes/pkg/api/testapi"
+	"k8s.io/kubernetes/pkg/labels"
+	apitesting "k8s.io/kubernetes/pkg/api/testing"
 )
 
-func TestTpmStrategy(t *testing.T) {
-	ctx := api.NewDefaultContext()
-	if !Strategy.NamespaceScoped() {
-		t.Errorf("Tpm must be namespace scoped")
-	}
-	if Strategy.AllowCreateOnUpdate() {
-		t.Errorf("Tpm should not allow create on update")
-	}
-
-	cfg := &tpm.Tpm{
-		ObjectMeta: api.ObjectMeta{
-			Name:      "valid-config-data",
-			Namespace: api.NamespaceDefault,
-		},
-		Data: map[string]string{
-			"foo": "bar",
-		},
-	}
-
-	Strategy.PrepareForCreate(cfg)
-
-	errs := Strategy.Validate(ctx, cfg)
-	if len(errs) != 0 {
-		t.Errorf("unexpected error validating %v", errs)
-	}
-
-	newCfg := &tpm.Tpm{
-		ObjectMeta: api.ObjectMeta{
-			Name:            "valid-config-data-2",
-			Namespace:       api.NamespaceDefault,
-			ResourceVersion: "4",
-		},
-		Data: map[string]string{
-			"invalidKey": "updatedValue",
-		},
-	}
-
-	Strategy.PrepareForUpdate(newCfg, cfg)
-
-	errs = Strategy.ValidateUpdate(ctx, newCfg, cfg)
-	if len(errs) == 0 {
-		t.Errorf("Expected a validation error")
-	}
+func TestSelectableFieldLabelConversions(t *testing.T) {
+	apitesting.TestSelectableFieldLabelConversionsOfKind(t,
+		testapi.Default.GroupVersion().String(),
+		"Tpm",
+		labels.Set(TpmToSelectableFields(&api.Tpm{})),
+		nil,
+	)
 }

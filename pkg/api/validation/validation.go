@@ -2367,14 +2367,23 @@ func ValidateLoadBalancerStatus(status *api.LoadBalancerStatus, fldPath *field.P
 	return allErrs
 }
 
+func ValidateTPMName(name string, prefix bool) (bool, string) {
+	return true, ""
+}
+
 func ValidateTpm(tpm *api.Tpm) field.ErrorList {
-	allErrs := field.ErrorList{}
+	allErrs := ValidateObjectMeta(&tpm.ObjectMeta, false, ValidateTPMName, field.NewPath("metadata"))
+
+	if len(tpm.EKCert) == 0 {
+		allErrs = append(allErrs, field.Required(field.NewPath("EKCert"), ""))
+	}
 
 	return allErrs
 }
 
 func ValidateTpmUpdate(old *api.Tpm, new *api.Tpm) field.ErrorList {
-	allErrs := field.ErrorList{}
+	allErrs := ValidateObjectMetaUpdate(&new.ObjectMeta, &old.ObjectMeta, field.NewPath("metadata"))
+	allErrs = append(allErrs, ValidateTpm(new)...)
 
 	return allErrs
 }
