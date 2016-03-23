@@ -46,6 +46,7 @@ import (
 	deploymentutil "k8s.io/kubernetes/pkg/util/deployment"
 	"k8s.io/kubernetes/pkg/util/intstr"
 	"k8s.io/kubernetes/pkg/util/sets"
+	"k8s.io/kubernetes/pkg/util/tpm"
 )
 
 // Describer generates output for the named resource or an error
@@ -1563,7 +1564,13 @@ func describeNode(node *api.Node, nodeNonTerminatedPodsList *api.PodList, events
 			}
 		}
 		var addresses []string
+		var ipaddress string
+		var tpmhandler tpm.TPMHandler
+
 		for _, address := range node.Status.Addresses {
+			if ipaddress == "" {
+				ipaddress = address.Address
+			}
 			addresses = append(addresses, address.Address)
 		}
 		fmt.Fprintf(out, "Addresses:\t%s\n", strings.Join(addresses, ","))
@@ -1599,6 +1606,34 @@ func describeNode(node *api.Node, nodeNonTerminatedPodsList *api.PodList, events
 		}
 		if events != nil {
 			DescribeEvents(events, out)
+		}
+
+		tpmhandler.Setup()
+
+		fmt.Fprintf(out, "TPM:\t")
+		tpmdata, err := tpmhandler.Get(ipaddress, false)
+		if err != nil {
+			fmt.Fprintf(out, "unavailable\n")
+		} else {
+			quote, log, err := tpm.Quote(tpmdata)
+			if err != nil {
+				fmt.Fprintf(out, "unable to read data\n")
+			} else {
+				err := tpm.ValidateLog(log, quote)
+				if err != nil {
+					fmt.Fprintf(out, "invalid data\n")
+				} else {
+					for _, entry := range(log) {
+						if entry.Eventtype != 0x1000 {
+							continue
+						}
+						if entry.Pcr != 15 {
+							continue
+						}
+						fmt.Fprintf(out, " %s\n", string(entry.Event))
+					}
+				}
+			}
 		}
 		return nil
 	})
