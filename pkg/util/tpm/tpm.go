@@ -17,7 +17,7 @@ import (
 	"github.com/coreos/go-tspi/tspiconst"
 	"github.com/coreos/go-tspi/verification"
 	"github.com/mitchellh/mapstructure"
-	api "k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/client/restclient"
         client "k8s.io/kubernetes/pkg/client/unversioned"
@@ -27,7 +27,7 @@ import (
 
 type TPMHandler struct {
 	tpmclient *dynamic.ResourceClient
-	policyclient *dynamic.ResourceClient
+	PolicyClient *dynamic.ResourceClient
 }
 
 var TPMResource string = "coreos.com"
@@ -78,26 +78,28 @@ func (t *TPMHandler) Setup(config *restclient.Config) error {
 	if err != nil {
 		return err
 	}
-	t.policyclient = policyresourceclient
+	t.PolicyClient = policyresourceclient
 
 	return nil
 }
 
 func (t *TPMHandler) GetPolicies() ([]map[string]PCRConfig, error) {
 	var configs []map[string]PCRConfig
-	unstructuredPolicies, err := t.policyclient.List(api.ListOptions{})
+	var options api.ListOptions
+
+	unstructuredPolicies, err := t.PolicyClient.List(&options)
 	if err != nil {
 		return nil, err
 	}
 	for _, unstructuredPolicy := range unstructuredPolicies.Items {
 		config := make(map[string]PCRConfig)
-		name := unstructuredPolicy.Object["name"].(string)
 		policy := unstructuredPolicy.Object["policy"]
 		policymap := policy.(map[string]interface{})
 		for pcr, unstructuredpcrconfig := range(policymap) {
 			var pcrconfig PCRConfig
 			err = mapstructure.Decode(unstructuredpcrconfig, &pcrconfig)
-			pcrconfig.Source = name
+			pcrconfig.Source = unstructuredPolicy.GetName()
+			pcrconfig.Policyref = unstructuredPolicy.GetSelfLink()
 			config[pcr] = pcrconfig
 		}
 		configs = append(configs, config)
@@ -138,9 +140,7 @@ func (t *TPMHandler) Get(address string, allowEmpty bool) (*Tpm, error) {
 		unstructuredTpm.Object["EKCert"] = base64.StdEncoding.EncodeToString(tpm.EKCert)
 		unstructuredTpm.Object["AIKPub"] = ""
 		unstructuredTpm.Object["AIKBlob"] = ""
-		metadata := make(map[string]interface{})
-		metadata["name"] = ekhash
-		unstructuredTpm.Object["metadata"] = metadata
+		unstructuredTpm.SetName(ekhash)
 
 		unstructuredTpm, err = t.tpmclient.Create(unstructuredTpm)
 		if err != nil {
@@ -182,7 +182,7 @@ func (t *TPMHandler) Get(address string, allowEmpty bool) (*Tpm, error) {
 		}
 		tpm.AIKPub = aikpub
 		tpm.AIKBlob = aikblob
-		unstructuredTpm.Name = ekhash
+		unstructuredTpm.SetName(ekhash)
 		unstructuredTpm.Object["EKCert"] = tpm.EKCert
 		unstructuredTpm.Object["AIKPub"] = tpm.AIKPub
 		unstructuredTpm.Object["AIKBlob"] = tpm.AIKBlob
@@ -246,6 +246,7 @@ type PCRValue struct {
 }
 
 type PCRConfig struct {
+	Policyref string
 	Source string
 	RawValues []PCRValue
 	ASCIIValues []PCRDescription
@@ -262,6 +263,8 @@ type ValidatedLog struct {
 	Valid bool
 	Description string
 	Source string
+	Match string
+	Policyref string
 }
 
 func ValidateRawPCR(pcrval []byte, valid []PCRValue) bool {
@@ -281,7 +284,7 @@ func ValidateRawPCR(pcrval []byte, valid []PCRValue) bool {
 	return false
 }
 
-func ValidateBinaryPCR(pcr int, log[]ValidatedLog, values []PCRDescription, source string) {
+func ValidateBinaryPCR(pcr int, log []ValidatedLog, values []PCRDescription, source string, policyref string) {
 	for index, logentry := range log {
 		var prefix string
 		if logentry.Pcr != int32(pcr) {
@@ -302,6 +305,8 @@ func ValidateBinaryPCR(pcr int, log[]ValidatedLog, values []PCRDescription, sour
 					log[index].Valid = true
 					log[index].Description = validpcr.Description
 					log[index].Source = source
+					log[index].Policyref = policyref
+					log[index].Match = validpcr.Value
 					continue
 				}
 				validHex, err := hex.DecodeString(validpcr.Value)
@@ -313,6 +318,8 @@ func ValidateBinaryPCR(pcr int, log[]ValidatedLog, values []PCRDescription, sour
 					log[index].Valid = true
 					log[index].Description = validpcr.Description
 					log[index].Source = source
+					log[index].Policyref = policyref
+					log[index].Match = validpcr.Value
 				}
 			}
 		}
@@ -320,7 +327,7 @@ func ValidateBinaryPCR(pcr int, log[]ValidatedLog, values []PCRDescription, sour
 	return
 }
 
-func ValidateASCIIPCR(pcr int, log[]ValidatedLog, values []PCRDescription, source string) {
+func ValidateASCIIPCR(pcr int, log[]ValidatedLog, values []PCRDescription, source string, policyref string) {
 	for index, logentry := range log {
 		var prefix string
 		var event string
@@ -349,6 +356,8 @@ func ValidateASCIIPCR(pcr int, log[]ValidatedLog, values []PCRDescription, sourc
 					log[index].Valid = true
 					log[index].Description = validpcr.Description
 					log[index].Source = source
+					log[index].Policyref = policyref
+					log[index].Match = validpcr.Value
 					break
 				}
 			}
@@ -360,7 +369,7 @@ func ValidateASCIIPCR(pcr int, log[]ValidatedLog, values []PCRDescription, sourc
 func ValidatePCRs(log []tspiconst.Log, quote [][]byte, pcrconfig []map[string]PCRConfig) ([]ValidatedLog, error) {
 	validatedlog := make([]ValidatedLog, len(log))
 	for index, logentry := range log {
-		validatedlog[index] = ValidatedLog{logentry, false, "", ""}
+		validatedlog[index] = ValidatedLog{logentry, false, "", "", "", ""}
 	}
 	for _, config := range pcrconfig {
 		for pcrname, _ := range config {
@@ -373,6 +382,7 @@ func ValidatePCRs(log []tspiconst.Log, quote [][]byte, pcrconfig []map[string]PC
 						if int(validatedlog[index].Pcr) == pcr {
 							validatedlog[index].Valid = true
 							validatedlog[index].Source = config[pcrname].Source
+							validatedlog[index].Policyref = config[pcrname].Policyref
 						}
 					}
 					continue
@@ -380,11 +390,11 @@ func ValidatePCRs(log []tspiconst.Log, quote [][]byte, pcrconfig []map[string]PC
 			}
 
 			if len(config[pcrname].BinaryValues) != 0 {
-				ValidateBinaryPCR(pcr, validatedlog, config[pcrname].BinaryValues, config[pcrname].Source)
+				ValidateBinaryPCR(pcr, validatedlog, config[pcrname].BinaryValues, config[pcrname].Source, config[pcrname].Policyref)
 			}
 
 			if len(config[pcrname].ASCIIValues) != 0 {
-				ValidateASCIIPCR(pcr, validatedlog, config[pcrname].ASCIIValues, config[pcrname].Source)
+				ValidateASCIIPCR(pcr, validatedlog, config[pcrname].ASCIIValues, config[pcrname].Source, config[pcrname].Policyref)
 			}
 		}
 	}

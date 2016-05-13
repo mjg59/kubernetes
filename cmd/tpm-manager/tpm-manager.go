@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/golang/glog"
@@ -157,6 +158,19 @@ func verifyAndUpdate(node *api.Node) {
 	if newnode.ObjectMeta.Annotations == nil {
 		newnode.ObjectMeta.Annotations = make(map[string]string)
 	}
+	currenttime := time.Now().Unix()
+
+	if newnode.ObjectMeta.Annotations[untrusted] != newstate {
+		if newstate == "true" {
+			newnode.ObjectMeta.Annotations["com.coreos.tpm/untrustedsince"] = strconv.FormatInt(currenttime, 10)
+			newnode.ObjectMeta.Annotations["com.coreos.tpm/trustedsince"] = ""
+		} else {
+			newnode.ObjectMeta.Annotations["com.coreos.tpm/untrustedsince"] = ""
+			newnode.ObjectMeta.Annotations["com.coreos.tpm/trustedsince"] = strconv.FormatInt(currenttime, 10)
+		}
+	}
+
+	newnode.ObjectMeta.Annotations["com.coreos.tpm/validationtime"] = strconv.FormatInt(currenttime, 10)
 	newnode.ObjectMeta.Annotations[untrusted] = newstate
 	newnode.ObjectMeta.Annotations["com.coreos.tpm/logstate"] = node.ObjectMeta.Annotations["com.coreos.tpm/logstate"]
 	newnode, err = manager.client.Nodes().Update(newnode)
@@ -166,15 +180,19 @@ func verifyAndUpdate(node *api.Node) {
 	}
 }
 
+func verifyAllNodes() {
+	nodes, err := manager.client.Nodes().List(api.ListOptions{})
+	if err != nil {
+		return
+	}
+	for _, node := range nodes.Items {
+		verifyAndUpdate(&node)
+	}
+}
+
 func reverify(delay int) {
 	for range time.Tick(time.Second * time.Duration(delay)) {
-		nodes, err := manager.client.Nodes().List(api.ListOptions{})
-		if err != nil {
-			continue
-		}
-		for _, node := range nodes.Items {
-			verifyAndUpdate(&node)
-		}
+		verifyAllNodes()
 	}
 }
 
@@ -187,6 +205,7 @@ type TPMManager struct {
 	allowunknown bool
 	recurring int
 	client *client.Client
+	policyTimer *time.Timer
 }
 
 var manager TPMManager
@@ -229,22 +248,43 @@ func main() {
 		&api.Node{},
 		controller.NoResyncPeriodFunc(),
 		framework.ResourceEventHandlerFuncs{
-			AddFunc:    addFn,
-			UpdateFunc: updateFn,
-			DeleteFunc: deleteFn,
+			AddFunc:    nodeAddFn,
+			UpdateFunc: nodeUpdateFn,
+			DeleteFunc: nodeDeleteFn,
 		},
 	)
+
+	_, policyController := framework.NewInformer(
+		&cache.ListWatch{
+			ListFunc: func(options api.ListOptions) (runtime.Object, error) {
+				return tpmhandler.PolicyClient.List(&options)
+			},
+			WatchFunc: func(options api.ListOptions) (watch.Interface, error) {
+				return tpmhandler.PolicyClient.Watch(&options)
+			},
+		},
+		&api.Node{},
+		controller.NoResyncPeriodFunc(),
+		framework.ResourceEventHandlerFuncs{
+			AddFunc:    policyAddFn,
+			UpdateFunc: policyUpdateFn,
+			DeleteFunc: policyDeleteFn,
+		},
+	)
+
 	manager.client = client
 	manager.tpmhandler = tpmhandler
 	if manager.recurring != 0 {
 		go reverify(manager.recurring)
 	}
 	fmt.Printf("Starting\n");
-	nodeController.Run(wait.NeverStop)
+	go nodeController.Run(wait.NeverStop)
+	go policyController.Run(wait.NeverStop)
+	select {}
 	fmt.Printf("Returned\n");
 }
 	
-func addFn(obj interface{}) {
+func nodeAddFn(obj interface{}) {
 	fmt.Printf("New node\n");
 	node, ok := obj.(*api.Node)
 	if !ok {
@@ -254,8 +294,30 @@ func addFn(obj interface{}) {
 	verifyAndUpdate(node)
 }
 
-func updateFn(oldObj, newObj interface{}) {
+func nodeUpdateFn(oldObj, newObj interface{}) {
 }
 
-func deleteFn(obj interface{}) {
+func nodeDeleteFn(obj interface{}) {
+}
+
+func scheduleVerification() {
+	if manager.policyTimer != nil {
+		manager.policyTimer.Stop()
+	}
+	manager.policyTimer = time.AfterFunc(time.Second, verifyAllNodes)
+}
+
+func policyAddFn(obj interface{}) {
+	fmt.Printf("New policy\n");
+	scheduleVerification()
+}
+
+func policyUpdateFn(oldobj, newobj interface{}) {
+	fmt.Printf("Updated policy\n");
+	scheduleVerification()
+}
+
+func policyDeleteFn(obj interface{}) {
+	fmt.Printf("Delteed policy\n");
+	scheduleVerification()
 }
