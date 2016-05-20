@@ -58,6 +58,9 @@ func isUntrusted(node *api.Node) (bool, error) {
 
 // Flag a node as untrusted
 func invalidateNode(node *api.Node) error {
+	if node.Annotations == nil {
+		node.Annotations = make(map[string]string)
+	}
 	taints, err := api.GetTaintsFromNodeAnnotations(node.Annotations)
 	newTaints := []api.Taint{}
 	untrustedTaint := api.Taint{
@@ -94,6 +97,7 @@ func (t *taintAdmit) Admit(a admission.Attributes) (err error) {
 		if err != nil {
 			return fmt.Errorf("Unable to invalidate node: %v", err)
 		}
+		return nil
 	}
 
 	// If an external update tries to switch a node from untrusted to trusted, force it back to untrusted

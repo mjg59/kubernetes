@@ -280,23 +280,23 @@ func main() {
 		},
 	)
 
-	//	_, policyController := framework.NewInformer(
-	//		&cache.ListWatch{
-	//			ListFunc: func(options api.ListOptions) (runtime.Object, error) {
-	//				return tpmhandler.PolicyClient.List(&options)
-	//			},
-	//			WatchFunc: func(options api.ListOptions) (watch.Interface, error) {
-	//				return tpmhandler.PolicyClient.Watch(&options)
-	//			},
-	//		},
-	//		&api.Node{},
-	//		controller.NoResyncPeriodFunc(),
-	//		framework.ResourceEventHandlerFuncs{
-	//			AddFunc:    policyAddFn,
-	//			UpdateFunc: policyUpdateFn,
-	//			DeleteFunc: policyDeleteFn,
-	//		},
-	//	)
+	_, policyController := framework.NewInformer(
+		&cache.ListWatch{
+			ListFunc: func(options api.ListOptions) (runtime.Object, error) {
+				return tpmhandler.PolicyClient.List(&options)
+			},
+			WatchFunc: func(options api.ListOptions) (watch.Interface, error) {
+				return tpmhandler.PolicyClient.Watch(&options)
+			},
+		},
+		&api.Node{},
+		controller.NoResyncPeriodFunc(),
+		framework.ResourceEventHandlerFuncs{
+			AddFunc:    policyAddFn,
+			UpdateFunc: policyUpdateFn,
+			DeleteFunc: policyDeleteFn,
+		},
+	)
 
 	manager.client = client
 	manager.tpmhandler = tpmhandler
@@ -305,7 +305,7 @@ func main() {
 	}
 	fmt.Printf("Starting\n")
 	go nodeController.Run(wait.NeverStop)
-	//	go policyController.Run(wait.NeverStop)
+	go policyController.Run(wait.NeverStop)
 	select {}
 	fmt.Printf("Returned\n")
 }
