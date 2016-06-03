@@ -38,6 +38,7 @@ RUN cp /usr/bin/nsenter /nsenter
 
 # Copy the hyperkube binary
 COPY hyperkube /hyperkube
+RUN ln -s /hyperkube /kubelet
 
 # Manifests for the docker guide
 COPY static-pods/master.json /etc/kubernetes/manifests/
