@@ -3736,6 +3736,10 @@ func TestPrivilegeContainerAllowed(t *testing.T) {
 
 func TestPrivilegeContainerDisallowed(t *testing.T) {
 	testKubelet := newTestKubelet(t, false /* controllerAttachDetachEnabled */)
+	testKubelet.fakeCadvisor.On("VersionInfo").Return(&cadvisorapi.VersionInfo{}, nil)
+	testKubelet.fakeCadvisor.On("MachineInfo").Return(&cadvisorapi.MachineInfo{}, nil)
+	testKubelet.fakeCadvisor.On("ImagesFsInfo").Return(cadvisorapiv2.FsInfo{}, nil)
+	testKubelet.fakeCadvisor.On("RootFsInfo").Return(cadvisorapiv2.FsInfo{}, nil)
 	kubelet := testKubelet.kubelet
 
 	capabilities.SetForTests(capabilities.Capabilities{
@@ -4333,6 +4337,10 @@ func TestGetPodsToSync(t *testing.T) {
 
 func TestGenerateAPIPodStatusWithSortedContainers(t *testing.T) {
 	testKubelet := newTestKubelet(t, false /* controllerAttachDetachEnabled */)
+	testKubelet.fakeCadvisor.On("VersionInfo").Return(&cadvisorapi.VersionInfo{}, nil)
+	testKubelet.fakeCadvisor.On("MachineInfo").Return(&cadvisorapi.MachineInfo{}, nil)
+	testKubelet.fakeCadvisor.On("ImagesFsInfo").Return(cadvisorapiv2.FsInfo{}, nil)
+	testKubelet.fakeCadvisor.On("RootFsInfo").Return(cadvisorapiv2.FsInfo{}, nil)
 	kubelet := testKubelet.kubelet
 	numContainers := 10
 	expectedOrder := []string{}
@@ -4397,6 +4405,10 @@ func TestGenerateAPIPodStatusWithReasonCache(t *testing.T) {
 	testErrorReason := fmt.Errorf("test-error")
 	emptyContainerID := (&kubecontainer.ContainerID{}).String()
 	testKubelet := newTestKubelet(t, false /* controllerAttachDetachEnabled */)
+	testKubelet.fakeCadvisor.On("VersionInfo").Return(&cadvisorapi.VersionInfo{}, nil)
+	testKubelet.fakeCadvisor.On("MachineInfo").Return(&cadvisorapi.MachineInfo{}, nil)
+	testKubelet.fakeCadvisor.On("ImagesFsInfo").Return(cadvisorapiv2.FsInfo{}, nil)
+	testKubelet.fakeCadvisor.On("RootFsInfo").Return(cadvisorapiv2.FsInfo{}, nil)
 	kubelet := testKubelet.kubelet
 	pod := podWithUidNameNs("12345678", "foo", "new")
 	pod.Spec = api.PodSpec{RestartPolicy: api.RestartPolicyOnFailure}
@@ -4582,6 +4594,10 @@ func TestGenerateAPIPodStatusWithDifferentRestartPolicies(t *testing.T) {
 	testErrorReason := fmt.Errorf("test-error")
 	emptyContainerID := (&kubecontainer.ContainerID{}).String()
 	testKubelet := newTestKubelet(t, false /* controllerAttachDetachEnabled */)
+	testKubelet.fakeCadvisor.On("VersionInfo").Return(&cadvisorapi.VersionInfo{}, nil)
+	testKubelet.fakeCadvisor.On("MachineInfo").Return(&cadvisorapi.MachineInfo{}, nil)
+	testKubelet.fakeCadvisor.On("ImagesFsInfo").Return(cadvisorapiv2.FsInfo{}, nil)
+	testKubelet.fakeCadvisor.On("RootFsInfo").Return(cadvisorapiv2.FsInfo{}, nil)
 	kubelet := testKubelet.kubelet
 	pod := podWithUidNameNs("12345678", "foo", "new")
 	containers := []api.Container{{Name: "succeed"}, {Name: "failed"}}
